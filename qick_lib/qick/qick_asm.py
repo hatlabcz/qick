@@ -578,7 +578,7 @@ class QickProgram:
             self.seti (0, rp, r_out, t+5, f'ch =0 out = ${r_out} @t = {t}')
     
     
-    def trigger_adc(self,adc1=0,adc2=0, adc_trig_offset=270, t=0):
+    def trigger_adc(self,adc1=0,adc2=0, adc_trig_offset=270, t=0): # TODO: this should only change the ADC trigger registers but not the PMOD registers
         """
         Triggers the ADC(s) at a specified time t+adc_trig_offset.
 

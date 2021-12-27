@@ -309,33 +309,34 @@ class RAveragerProgram(QickProgram):
         Constructor for the RAveragerProgram, calls make program at the end so for classes that inherit from this if you want it to do something before the program is made and compiled either do it before calling this __init__ or put it in the initialize method.
         """
         QickProgram.__init__(self)
+        self.rcount_addr = 10
         self.cfg=cfg
         self.make_program()
-    
+
     def initialize(self):
         """
         Abstract method for initializing the program and can include any instructions that are executed once at the beginning of the program.
         """
         pass
-    
+
     def body(self):
         """
         Abstract method for the body of the program
         """
         pass
-    
+
     def update(self):
         """
         Abstract method for updating the program
         """
         pass
-    
+
     def make_program(self):
         """
         A template program which repeats the instructions defined in the body() method the number of times specified in self.cfg["reps"].
         """
         p=self
-        
+
         rcount=13
         rii=14
         rjj=15
@@ -343,9 +344,9 @@ class RAveragerProgram(QickProgram):
         p.initialize()
 
         p.regwi(0, rcount,0)
-        
+
         p.regwi (0, rii, self.cfg["expts"]-1 )
-        p.label("LOOP_I")    
+        p.label("LOOP_I")
 
         p.regwi (0, rjj, self.cfg["reps"]-1)
         p.label("LOOP_J")
@@ -353,16 +354,16 @@ class RAveragerProgram(QickProgram):
         p.body()
 
         p.mathi(0,rcount,rcount,"+",1)
-        
-        p.memwi(0,rcount,1)
-                
+
+        p.memwi(0,rcount,self.rcount_addr)
+
         p.loopnz(0, rjj, 'LOOP_J')
 
         p.update()
-        
-        p.loopnz(0, rii, "LOOP_I")    
 
-        p.end()        
+        p.loopnz(0, rii, "LOOP_I")
+
+        p.end()
 
     def get_expt_pts(self):
         """
@@ -372,7 +373,7 @@ class RAveragerProgram(QickProgram):
         :rtype: array
         """
         return self.cfg["start"]+np.arange(self.cfg['expts'])*self.cfg["step"]
-        
+
     def acquire_round(self, soc, threshold=None, angle=[0,0],  readouts_per_experiment=1, save_experiments=[0], load_pulses=True, progress=True, debug=False):
         """
          This method optionally loads pulses on to the SoC, configures the ADC readouts, loads the machine code representation of the AveragerProgram onto the SoC, starts the program and streams the data into the Python, returning it as a set of numpy arrays.
@@ -403,13 +404,13 @@ class RAveragerProgram(QickProgram):
              - avg_dq (:py:class:`list`) - list of lists of averaged accumulated Q data for ADCs 0 and 1
          """
 
-        if load_pulses: 
+        if load_pulses:
             self.load_pulses(soc)
-        
+
         for readout,adc_freq in zip(soc.readouts,self.cfg["adc_freqs"]):
             readout.set_out(sel="product")
             readout.set_freq(adc_freq)
-        
+
         # Configure and enable buffer capture.
         for avg_buf,adc_length in zip(soc.avg_bufs, self.cfg["adc_lengths"]):
             avg_buf.config_buf(address=0,length=adc_length)
@@ -418,41 +419,47 @@ class RAveragerProgram(QickProgram):
             avg_buf.enable_avg()
 
         soc.tproc.load_qick_program(self, debug=debug)
-        
+
         reps,expts = self.cfg['reps'],self.cfg['expts']
-        
+
         count=0
-        last_count=0
+        last_count=-1
         total_count=reps*expts*readouts_per_experiment
 
         di_buf=np.zeros((2,total_count))
         dq_buf=np.zeros((2,total_count))
-        
+
         soc.tproc.stop()
-        
-        soc.tproc.single_write(addr= 1,data=0)   #make sure count variable is reset to 0
+
+        soc.tproc.single_write(addr=self.rcount_addr,data=0)   #make sure count variable is reset to 0
         self.stats=[]
-        
+
         with tqdm(total=total_count, disable=not progress) as pbar:
+            print(soc.tproc.single_read(addr=self.rcount_addr))
+            tt0=time.time()
             soc.tproc.start()
+#             soc.tproc.single_write(addr=self.rcount_addr,data=0)
+            print(f"{np.round(time.time()-tt0,5)}",soc.tproc.single_read(addr=self.rcount_addr))
             while count<total_count-1:
-                count = soc.tproc.single_read(addr= 1)*readouts_per_experiment
+                count = soc.tproc.single_read(addr=self.rcount_addr)*readouts_per_experiment
+                print(f"{np.round(time.time()-tt0,5)}", soc.tproc.single_read(addr=1), count, last_count)
+#                 if count>=min(last_count+800,total_count-1):
+# #                     time.sleep(0.1)
+#                     addr=(last_count +1) % soc.avg_bufs[1].AVG_MAX_LENGTH
+#                     length = min(count, total_count-1)-last_count
+#                     # length -= length%2
+#                     print(f"count {count}, lastcount{last_count}",f"read data from {addr}, length {length}")
+#                     for ch in range(2):
+#                         print(f"count reg: {soc.tproc.single_read(addr=self.rcount_addr)*readouts_per_experiment}")
+#                         di,dq = soc.get_accumulated(ch=ch,address=addr, length=length)
 
-                if count>=min(last_count+1000,total_count-1):
-                    addr=last_count % soc.avg_bufs[1].AVG_MAX_LENGTH
-                    length = count-last_count
-                    length -= length%2
+#                         di_buf[ch,last_count+1:count+1]=di[:length]
+#                         dq_buf[ch,last_count+1:count+1]=dq[:length]
 
-                    for ch in range(2):
-                        di,dq = soc.get_accumulated(ch=ch,address=addr, length=length)
-
-                        di_buf[ch,last_count:last_count+length]=di[:length]
-                        dq_buf[ch,last_count:last_count+length]=dq[:length]
-
-                    last_count+=length
-                    self.stats.append( (time.time(), count,addr, length))
-                    pbar.update(last_count-pbar.n)
-                    
+#                     last_count += length
+#                     self.stats.append( (time.time(), count,addr, length))
+#                     pbar.update(last_count-pbar.n + 1)
+        print("final:", count, last_count)
         self.di_buf=di_buf
         self.dq_buf=dq_buf
         
