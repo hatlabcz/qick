@@ -438,17 +438,20 @@ class RAveragerProgram(QickProgram):
         self.stats=[]
         
         with tqdm(total=total_count, disable=not progress) as pbar:
+            print("count before start:", soc.tproc.single_read(addr= 1)*readouts_per_experiment)
+            t0 = time.time()
             soc.tproc.start()
+            print(f"after {time.time()-t0} s. ", "Count after start:", soc.tproc.single_read(addr=1) * readouts_per_experiment)
             while count<total_count-1:
                 count = soc.tproc.single_read(addr= 1)*readouts_per_experiment
 
                 if count>=min(last_count+1000,total_count-1):
                     addr=last_count % soc.avg_bufs[1].AVG_MAX_LENGTH
-                    length = count-last_count
-                    length -= length%2
+                    length = count-last_count + 1 # length of data should be difference of index + 1? Since at the beginning coount and last_count are both 0
+                    length_r = length + length%2 # only change the length of data that we read from mem, but not the data we store in the array
 
                     for ch in range(2):
-                        di,dq = soc.get_accumulated(ch=ch,address=addr, length=length)
+                        di,dq = soc.get_accumulated(ch=ch,address=addr, length=length_r)
 
                         di_buf[ch,last_count:last_count+length]=di[:length]
                         dq_buf[ch,last_count:last_count+length]=dq[:length]
