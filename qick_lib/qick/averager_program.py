@@ -422,19 +422,19 @@ class RAveragerProgram(QickProgram):
         
         with tqdm(total=total_count, disable=not progress) as pbar:
             tproc.start()
-            while count<total_count-1:
+            while count<total_count: # count starts from 0, and count += 1 after each experiment. So in the end count should reach total_count?
                 count = tproc.single_read(addr= 1)*readouts_per_experiment
-
-                if count>=min(last_count+100,total_count-1):
-                    addr=last_count % soc.get_avg_max_length(0)
+                if count>=min(last_count+100, total_count): # again it should be total_count here?
+                    addr=last_count % soc.get_avg_max_length(0) - 2 # start reading from 2 address earlier.
                     length = count-last_count
                     length -= length%2
+                    length_read = length + 2 # read for two more addresses since the first two will be dropped latter
 
                     for ch in range(2):
-                        di,dq = soc.get_accumulated(ch=ch,address=addr, length=length)
+                        di,dq = soc.get_accumulated(ch=ch,address=addr, length=length_read)
 
-                        di_buf[ch,last_count:last_count+length]=di[:length]
-                        dq_buf[ch,last_count:last_count+length]=dq[:length]
+                        di_buf[ch,last_count:last_count+length]=di[2:length+2] # data after index 2 is the real data we need
+                        dq_buf[ch,last_count:last_count+length]=dq[2:length+2]
 
                     last_count+=length
                     self.stats.append( (time.time(), count,addr, length))
