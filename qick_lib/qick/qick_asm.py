@@ -491,7 +491,7 @@ class QickProgram:
             self.seti (0, rp, r_out, t+5, f'ch =0 out = ${r_out} @t = {t}')
     
     
-    def trigger_adc(self,adc1=0,adc2=0, adc_trig_offset=270, t=0):
+    def trigger_adc(self,adc1=0,adc2=0, adc_trig_offset=270, t=0, PMOD_states=[0,0,0,0]):
         """
         Triggers the ADC(s) at a specified time t+adc_trig_offset.
 
@@ -503,13 +503,16 @@ class QickProgram:
         :type adc_trig_offset: int
         :param t: The number of clock ticks at which point the ADC trigger starts
         :type t: int
+        :param PMOD_states: state of the PMOD pins when triggering ADC, [PMOD0_0, PMOD0_1, PMOD0_2, PMOD0_3]
+        :type t: list[int]
         """
-        out= (adc2 << 15) |(adc1 << 14)
+        out = (adc2 << 15) |(adc1 << 14) | int(''.join(map(str, PMOD_states[::-1])),2)
+        out_0 = (0 << 15) |(0 << 14) | int(''.join(map(str, PMOD_states[::-1])),2)
         r_out=31
         self.regwi (0, r_out, out, f'out = 0b{out:>016b}')
-        self.seti (0, 0, r_out, t+adc_trig_offset, f'ch =0 out = ${r_out} @t = {t}')
-        self.regwi (0, r_out, 0, f'out = 0b{0:>016b}')
-        self.seti (0, 0, r_out, t+adc_trig_offset+10, f'ch =0 out = ${r_out} @t = {t}')     
+        self.seti (0, 0, r_out, t+adc_trig_offset, f'ch =0 out = ${r_out} @t = {t+adc_trig_offset}')
+        self.regwi (0, r_out, out_0, f'out = 0b{out_0:>016b}')
+        self.seti (0, 0, r_out, t+adc_trig_offset+10, f'ch =0 out = ${r_out} @t = {t+adc_trig_offset+10}')     
         
     def convert_immediate(self, val):
         """

@@ -184,7 +184,7 @@ class AveragerProgram(QickProgram):
         
         avg_di=None
         for ii in tqdm(range (self.cfg["rounds"]), disable=not progress):           
-            avg_di0, avg_dq0, avg_amp0=self.acquire_round(soc,threshold=threshold, angle=angle, load_pulses=load_pulses,progress=False, debug=debug)
+            avg_di0, avg_dq0=self.acquire_round(soc,threshold=threshold, angle=angle, load_pulses=load_pulses,progress=False, debug=debug)
             
             if avg_di is None:
                 avg_di, avg_dq = avg_di0, avg_dq0
@@ -192,7 +192,7 @@ class AveragerProgram(QickProgram):
                 avg_di+= avg_di0
                 avg_dq+= avg_dq0
                 
-        return expt_pts, avg_di/self.cfg["rounds"], avg_dq/self.cfg["rounds"]
+        return avg_di/self.cfg["rounds"], avg_dq/self.cfg["rounds"]
     
     def get_single_shots(self, di, dq, threshold, angle=[0,0]):
         """
@@ -414,6 +414,8 @@ class RAveragerProgram(QickProgram):
 
         di_buf=np.zeros((2,total_count))
         dq_buf=np.zeros((2,total_count))
+        self.di_buf=np.zeros((2,total_count))
+        self.dq_buf=np.zeros((2,total_count))
         
         tproc.stop()
         
@@ -440,8 +442,8 @@ class RAveragerProgram(QickProgram):
                     self.stats.append( (time.time(), count,addr, length))
                     pbar.update(last_count-pbar.n)
                     
-        self.di_buf=di_buf
-        self.dq_buf=dq_buf
+        self.di_buf+=di_buf
+        self.dq_buf+=dq_buf
         
         if threshold is not None:
             self.shots=self.get_single_shots(di_buf,dq_buf, threshold, angle)
@@ -526,6 +528,9 @@ class RAveragerProgram(QickProgram):
             else:
                 avg_di+= avg_di0
                 avg_dq+= avg_dq0
+                
+        self.di_buf/=self.cfg["rounds"]
+        self.dq_buf/=self.cfg["rounds"]
         
                 
         return expt_pts, avg_di/self.cfg["rounds"], avg_dq/self.cfg["rounds"]
