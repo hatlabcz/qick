@@ -826,7 +826,7 @@ class PAveragerProgram(QickProgram):
         avg_di = None
         for ii in tqdm(range(self.cfg["rounds"]), disable=not progress):
             expt_pts, avg_di0, avg_dq0 = self.acquire_round(soc, threshold=threshold, angle=angle, readouts_per_experiment=readouts_per_experiment,
-                                                            save_experiments=save_experiments, load_pulses=load_pulses, start_src=start_src, progress=False, debug=debug)
+                                                            save_experiments=save_experiments, load_pulses=load_pulses, start_src=start_src, progress=progress, debug=debug)
 
             if avg_di is None:
                 avg_di, avg_dq = avg_di0, avg_dq0
